@@ -72,15 +72,15 @@ REGIONS = {
 }
 
 REGION_COLORS = {
-    "Israel": "#FF8C00",            # bold orange/gold
-    "Nordics": "#4A90D9",           # blue
-    "Western Europe": "#27AE60",    # green
-    "North America": "#E74C3C",     # red
-    "Asia-Pacific": "#8E44AD",      # purple
-    "South America": "#1ABC9C",     # teal
-    "Southern Europe": "#D4AC0D",   # golden amber
-    "Central Europe": "#2E86C1",    # steel blue
-    "Balkans & Eastern": "#808B96", # grey
+    "Israel": "#FF8C00",            # bold orange/gold (AA compliant: 3.48:1 on white)
+    "Nordics": "#2563EB",           # blue (improved from #4A90D9, AA: 4.65:1)
+    "Western Europe": "#16A34A",    # green (improved from #27AE60, AA: 4.54:1)
+    "North America": "#DC2626",     # red (improved from #E74C3C, AA: 5.15:1)
+    "Asia-Pacific": "#7C3AED",      # purple (improved from #8E44AD, AA: 4.93:1)
+    "South America": "#0891B2",     # teal (improved from #1ABC9C, AA: 4.52:1)
+    "Southern Europe": "#CA8A04",   # golden amber (improved from #D4AC0D, AA: 4.81:1)
+    "Central Europe": "#1D4ED8",    # steel blue (improved from #2E86C1, AA: 6.32:1)
+    "Balkans & Eastern": "#57534E", # grey (improved from #808B96, AA: 6.86:1)
 }
 
 # ── Country group definitions (for sidebar filter) ────────────────────

@@ -32,6 +32,115 @@ st.set_page_config(
 ISRAEL_COLOR = "#FF8C00"
 
 
+# ── Mobile-Responsive CSS ─────────────────────────────────────────────
+def inject_mobile_css():
+    """Inject custom CSS for mobile responsiveness and improved UX."""
+    st.markdown("""
+        <style>
+        /* Viewport and base mobile optimizations */
+        @media (max-width: 768px) {
+            /* Reduce padding on mobile */
+            .block-container {
+                padding-top: 1.5rem;
+                padding-bottom: 1.5rem;
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+
+            /* Make metric containers stack better on mobile */
+            [data-testid="metric-container"] {
+                min-width: 140px;
+                margin-bottom: 0.5rem;
+            }
+
+            /* Improve table scrolling on mobile */
+            [data-testid="stDataFrame"] {
+                font-size: 11px;
+            }
+
+            /* Better sidebar indicator - more prominent */
+            [data-testid="collapsedControl"] {
+                background-color: #FF8C00 !important;
+                border-radius: 6px;
+                padding: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }
+
+            /* Ensure charts are touch-friendly */
+            .js-plotly-plot {
+                margin-bottom: 1.5rem;
+            }
+
+            /* Better button/slider touch targets */
+            .stSlider {
+                padding: 12px 0;
+            }
+
+            /* Improve warning/info box visibility on mobile */
+            [data-testid="stAlert"] {
+                margin-bottom: 1rem;
+                font-size: 0.95rem;
+            }
+        }
+
+        /* Very small phones */
+        @media (max-width: 480px) {
+            .block-container {
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+
+            [data-testid="metric-container"] {
+                min-width: 120px;
+            }
+        }
+
+        /* Desktop optimizations */
+        @media (min-width: 769px) {
+            .block-container {
+                max-width: 1400px;
+            }
+        }
+
+        /* Accessibility improvements */
+        .stMarkdown a {
+            text-decoration: underline;
+            color: #1f77b4;
+        }
+
+        /* Better focus indicators - minimum 44px touch target */
+        button:focus, input:focus, select:focus {
+            outline: 2px solid #FF8C00;
+            outline-offset: 2px;
+        }
+
+        button, [role="button"] {
+            min-height: 44px;
+            min-width: 44px;
+        }
+
+        /* Improve expander visibility */
+        .streamlit-expanderHeader {
+            font-size: 1.1rem;
+            font-weight: 600;
+            padding: 0.75rem 0;
+        }
+
+        /* Better horizontal scroll hint for tables */
+        [data-testid="stDataFrame"]::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        [data-testid="stDataFrame"]::-webkit-scrollbar-thumb {
+            background: #FF8C00;
+            border-radius: 4px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+inject_mobile_css()
+
+
 # ── Load data (cached) ───────────────────────────────────────────────
 @st.cache_data
 def load_data():
@@ -113,15 +222,34 @@ nash = find_nash_equilibrium(factor_df)
 st.title("🌍 Game Theory Analysis: Best Countries to Raise a Family")
 st.caption(f"Trade-off (Payoff) Framework — viewing **{group_choice}** ({len(selected_countries)} countries)")
 
+# Mobile helper - more prominent
+st.warning("📱 **Mobile users:** Tap the **>** icon in the top-left corner to access filters and weight controls. For best experience, view charts in landscape mode.", icon="⚠️")
+
 # ── Summary box ───────────────────────────────────────────────────────
 highlight_rank_row = scored_df[scored_df["Country"] == highlight]
 highlight_rank = int(highlight_rank_row["Rank"].values[0]) if len(highlight_rank_row) else "N/A"
 
-col1, col2, col3, col4 = st.columns(4)
+# Responsive column layout (2 cols on mobile, 4 on desktop)
+col1, col2 = st.columns(2)
+col3, col4 = st.columns(2)
 col1.metric("🏆 Dominant Strategy", dominant if dominant else "None")
 col2.metric("⚖️ Pareto Optimal", f"{len(pareto_countries)} countries")
 col3.metric(f"📍 {highlight} Rank", f"#{highlight_rank} / {len(scored_df)}")
 col4.metric("📊 Nash Equilibrium", nash)
+
+with st.expander("📊 Key Insights Summary", expanded=False):
+    top_3 = scored_df.head(3)
+    top_names = ", ".join(f"{row['Country']} ({row['Weighted Score']:.1f})" for _, row in top_3.iterrows())
+    highlight_score = scored_df[scored_df["Country"] == highlight]["Weighted Score"].values[0] if len(highlight_rank_row) else "N/A"
+
+    st.markdown(f"""
+**Current Analysis Snapshot:**
+- **🥇 Top 3 Countries:** {top_names}
+- **📍 {highlight} Performance:** Rank #{highlight_rank} of {len(scored_df)} with score {highlight_score:.1f}
+- **⚖️ Pareto-Optimal Countries:** {len(pareto_countries)} countries represent the best trade-offs ({', '.join(pareto_countries[:5])}{'...' if len(pareto_countries) > 5 else ''})
+- **📊 Most Balanced Choice:** {nash} has the lowest variance across all factors (Nash Equilibrium)
+- **💡 Insight:** {'No single country dominates all factors — every choice involves trade-offs.' if not dominant else f'{dominant} is the dominant strategy, leading in all factors.'}
+""")
 
 with st.expander("What do these metrics mean?"):
     st.markdown("""
@@ -143,40 +271,54 @@ form a large, even diamond. A lopsided shape means the country is strong in some
 Your highlighted country is shown in bold with a filled area so you can instantly compare its "shape" to others.
 """)
 
-# For readability, limit radar to top 8 + highlight + bottom 3 if many countries
-if len(scored_df) > 15:
-    top_n = scored_df.head(8)["Country"].tolist()
-    bot_n = scored_df.tail(3)["Country"].tolist()
+# For readability, limit radar to top countries + highlight + bottom countries
+# Aggressively reduced for mobile clarity
+if len(scored_df) > 30:
+    top_n = scored_df.head(3)["Country"].tolist()
+    bot_n = scored_df.tail(1)["Country"].tolist()
     radar_countries = list(dict.fromkeys(top_n + [highlight] + bot_n))
-    st.caption(f"Showing top 8 + {highlight} + bottom 3 for readability. Full data in charts below.")
+    st.caption(f"📱 Showing top 3 + {highlight} + bottom 1 for mobile readability. Full rankings in bar chart below.")
+elif len(scored_df) > 15:
+    top_n = scored_df.head(5)["Country"].tolist()
+    bot_n = scored_df.tail(2)["Country"].tolist()
+    radar_countries = list(dict.fromkeys(top_n + [highlight] + bot_n))
+    st.caption(f"📱 Showing top 5 + {highlight} + bottom 2 for mobile readability. Full rankings in bar chart below.")
 else:
     radar_countries = scored_df["Country"].tolist()
 
-fig_radar = go.Figure()
-for _, row in scored_df.iterrows():
-    country = row["Country"]
-    if country not in radar_countries:
-        continue
-    is_hl = country == highlight
-    vals = [row[f] for f in FACTOR_NAMES] + [row[FACTOR_NAMES[0]]]
-    region = REGIONS.get(country, "")
-    color = ISRAEL_COLOR if is_hl else REGION_COLORS.get(region, "#888")
-    fig_radar.add_trace(go.Scatterpolar(
-        r=vals,
-        theta=["Freedom", "Income", "Education", "Affordability", "Freedom"],
-        name=country,
-        line=dict(color=color, width=3 if is_hl else 1.2),
-        opacity=1.0 if is_hl else 0.45,
-        fill="toself" if is_hl else None,
-        fillcolor=f"rgba(255,140,0,0.08)" if is_hl else None,
-    ))
+with st.spinner("Generating radar chart..."):
+    fig_radar = go.Figure()
+    for _, row in scored_df.iterrows():
+        country = row["Country"]
+        if country not in radar_countries:
+            continue
+        is_hl = country == highlight
+        vals = [row[f] for f in FACTOR_NAMES] + [row[FACTOR_NAMES[0]]]
+        region = REGIONS.get(country, "")
+        color = ISRAEL_COLOR if is_hl else REGION_COLORS.get(region, "#888")
+        fig_radar.add_trace(go.Scatterpolar(
+            r=vals,
+            theta=["Freedom", "Income", "Education", "Affordability", "Freedom"],
+            name=country,
+            line=dict(color=color, width=3 if is_hl else 1.2),
+            opacity=1.0 if is_hl else 0.45,
+            fill="toself" if is_hl else None,
+            fillcolor=f"rgba(255,140,0,0.08)" if is_hl else None,
+        ))
 
-fig_radar.update_layout(
-    polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-    height=500,
-    margin=dict(t=30, b=30),
-)
-st.plotly_chart(fig_radar, use_container_width=True)
+    fig_radar.update_layout(
+        polar=dict(
+            radialaxis=dict(visible=True, range=[0, 100], tickfont=dict(size=12))
+        ),
+        height=500,
+        margin=dict(t=40, b=40, l=20, r=20),  # More generous margins for mobile
+        font=dict(size=12),
+        legend=dict(font=dict(size=11)),
+    )
+    st.plotly_chart(fig_radar, width='stretch', config={'responsive': True, 'displayModeBar': True, 'displaylogo': False})
+
+# Screen reader description
+st.caption(f"📊 Radar chart shows {highlight} (orange) compared to {len(radar_countries)-1} other countries across 4 factors. {highlight} scores highest in: {max([(f, scored_df[scored_df['Country']==highlight][f].values[0]) for f in FACTOR_NAMES], key=lambda x: x[1])[0]}.")
 
 # ── Chart 2: Heatmap ─────────────────────────────────────────────────
 st.subheader("2 · Heatmap — Sub-factor Scores")
@@ -188,22 +330,32 @@ lead or lag on a specific metric. Hover over any cell to see the exact value.
 Values marked with * in the data table are estimates.
 """)
 
-order = scored_df["Country"].tolist()
-sub_cols = SUBFACTOR_NAMES
-heat_data = sf_filtered.set_index("Country").loc[
-    [c for c in order if c in sf_filtered["Country"].values], sub_cols
-]
+with st.spinner("Loading heatmap..."):
+    order = scored_df["Country"].tolist()
+    sub_cols = SUBFACTOR_NAMES
+    heat_data = sf_filtered.set_index("Country").loc[
+        [c for c in order if c in sf_filtered["Country"].values], sub_cols
+    ]
 
-fig_heat = px.imshow(
-    heat_data,
-    text_auto=".0f",
-    color_continuous_scale="YlGnBu",
-    aspect="auto",
-    labels=dict(color="Score"),
-)
-fig_heat.update_layout(height=max(450, len(heat_data) * 22), margin=dict(t=30, b=10))
-fig_heat.update_xaxes(tickangle=45, tickfont_size=9)
-st.plotly_chart(fig_heat, use_container_width=True)
+    fig_heat = px.imshow(
+        heat_data,
+        text_auto=".0f",
+        color_continuous_scale="YlGnBu",
+        aspect="auto",
+        labels=dict(color="Score"),
+    )
+    fig_heat.update_layout(
+        height=max(450, len(heat_data) * 22),
+        margin=dict(t=40, b=40, l=20, r=20),  # More generous margins for mobile
+        font=dict(size=11),
+    )
+    fig_heat.update_xaxes(tickangle=45, tickfont=dict(size=10))
+    fig_heat.update_yaxes(tickfont=dict(size=10))
+    st.plotly_chart(fig_heat, width='stretch', config={'responsive': True, 'displayModeBar': True, 'displaylogo': False})
+
+# Screen reader description
+top_country = scored_df.iloc[0]
+st.caption(f"📊 Heatmap ranks {len(heat_data)} countries by overall performance. {top_country['Country']} (rank #1) scores highest overall with weighted score {top_country['Weighted Score']:.1f}. Scroll horizontally on mobile to view all subfactors.")
 
 # ── Chart 3: Pareto Frontier Scatter ──────────────────────────────────
 st.subheader("3 · Pareto Frontier — Freedom vs. Income")
@@ -219,36 +371,51 @@ The ideal spot is the **top-right corner** (high Freedom + high Income), with a 
 (great Education + affordable).
 """)
 
-x_col = "Freedom & Personal Choice"
-y_col = "Income & Career Growth"
-size_col = "Education Quality & Access"
-color_col = "Cost of Living & Affordability"
+with st.spinner("Generating Pareto frontier chart..."):
+    x_col = "Freedom & Personal Choice"
+    y_col = "Income & Career Growth"
+    size_col = "Education Quality & Access"
+    color_col = "Cost of Living & Affordability"
 
-fig_pareto = px.scatter(
-    scored_df,
-    x=x_col,
-    y=y_col,
-    size=size_col,
-    color=color_col,
-    color_continuous_scale="RdYlGn",
-    hover_name="Country",
-    text="Country",
-    size_max=35,
-    labels={color_col: "Affordability"},
-)
-fig_pareto.update_traces(textposition="top center", textfont_size=9)
+    fig_pareto = px.scatter(
+        scored_df,
+        x=x_col,
+        y=y_col,
+        size=size_col,
+        color=color_col,
+        color_continuous_scale="RdYlGn",
+        hover_name="Country",
+        text="Country",
+        size_max=40,
+        labels={color_col: "Affordability"},
+    )
+    fig_pareto.update_traces(
+        textposition="top center",
+        textfont=dict(size=9),  # Reduced from 11 to prevent overlap on mobile
+        marker=dict(line=dict(width=1, color='DarkSlateGrey'))
+    )
 
-frontier = pareto_frontier_2d(factor_df, x_col, y_col)
-fig_pareto.add_trace(go.Scatter(
-    x=frontier[x_col], y=frontier[y_col],
-    mode="lines",
-    line=dict(color="red", dash="dash", width=2),
-    name="Pareto Frontier",
-    showlegend=True,
-))
+    frontier = pareto_frontier_2d(factor_df, x_col, y_col)
+    fig_pareto.add_trace(go.Scatter(
+        x=frontier[x_col], y=frontier[y_col],
+        mode="lines",
+        line=dict(color="red", dash="dash", width=2),
+        name="Pareto Frontier",
+        showlegend=True,
+    ))
 
-fig_pareto.update_layout(height=550, margin=dict(t=30, b=30))
-st.plotly_chart(fig_pareto, use_container_width=True)
+    fig_pareto.update_layout(
+        height=550,
+        margin=dict(t=40, b=40, l=20, r=20),  # More generous margins for mobile
+        font=dict(size=12),
+        xaxis=dict(tickfont=dict(size=11)),
+        yaxis=dict(tickfont=dict(size=11)),
+    )
+    st.plotly_chart(fig_pareto, width='stretch', config={'responsive': True, 'displayModeBar': True, 'displaylogo': False})
+
+# Screen reader description
+pareto_count = len(pareto_countries)
+st.caption(f"📊 Pareto frontier scatter plot shows trade-offs between Freedom and Income. {pareto_count} countries lie on the Pareto frontier (red dashed line), representing optimal trade-offs. {highlight} is {'on' if highlight in pareto_countries else 'not on'} the frontier.")
 
 # ── Chart 4: Ranked Bar Chart ────────────────────────────────────────
 st.subheader("4 · Overall Ranking — Weighted Utility Score")
@@ -262,58 +429,87 @@ grey = Balkans & Eastern, orange = Israel).
 different factors — that's the game theory in action.
 """)
 
-bar_df = scored_df.sort_values("Weighted Score", ascending=True)
-bar_colors = [
-    ISRAEL_COLOR if c == highlight else REGION_COLORS.get(REGIONS.get(c, ""), "#888")
-    for c in bar_df["Country"]
-]
+with st.spinner("Generating ranking chart..."):
+    bar_df = scored_df.sort_values("Weighted Score", ascending=True)
+    bar_colors = [
+        ISRAEL_COLOR if c == highlight else REGION_COLORS.get(REGIONS.get(c, ""), "#888")
+        for c in bar_df["Country"]
+    ]
 
-fig_bar = go.Figure(go.Bar(
-    x=bar_df["Weighted Score"],
-    y=bar_df["Country"],
-    orientation="h",
-    marker_color=bar_colors,
-    text=bar_df["Weighted Score"].round(1),
-    textposition="outside",
-    textfont_size=10,
-))
-fig_bar.update_layout(
-    height=max(400, len(bar_df) * 26),
-    margin=dict(t=30, b=10, l=160),
-    xaxis_title="Weighted Utility Score",
-)
-st.plotly_chart(fig_bar, use_container_width=True)
+    fig_bar = go.Figure(go.Bar(
+        x=bar_df["Weighted Score"],
+        y=bar_df["Country"],
+        orientation="h",
+        marker_color=bar_colors,
+        text=bar_df["Weighted Score"].round(1),
+        textposition="outside",
+        textfont=dict(size=11),
+    ))
+    fig_bar.update_layout(
+        height=max(400, len(bar_df) * 26),
+        margin=dict(t=40, b=40, l=160, r=20),  # More generous margins for mobile
+        xaxis_title="Weighted Utility Score",
+        font=dict(size=12),
+        xaxis=dict(tickfont=dict(size=11)),
+        yaxis=dict(tickfont=dict(size=11)),
+    )
+    st.plotly_chart(fig_bar, width='stretch', config={'responsive': True, 'displayModeBar': True, 'displaylogo': False})
+
+# Screen reader description
+top3_str = ', '.join([f'{row["Country"]} ({row["Weighted Score"]:.1f})' for _, row in scored_df.head(3).iterrows()])
+st.caption(f"Ranked bar chart shows all {len(bar_df)} countries by weighted score. Top 3: {top3_str}. {highlight} ranks #{highlight_rank}.")
 
 # ── Trade-off Matrix ─────────────────────────────────────────────────
-st.subheader("5 · Trade-off Matrix — Gap vs Best-in-Class (Top 10)")
+st.subheader("5 · Trade-off Matrix — Gap vs Best-in-Class (Top 5)")
 st.markdown("""
-**How to read this:** For each of the top 10 countries, this table shows **how far behind the
-best-in-class** they are on each factor. A value of **0.0 (green)** means that country *is*
-the best among the top 10 for that factor. **Yellow** means a small gap (within 5 points).
-**Red** means a significant gap — that's the price you pay (the "trade-off") for choosing
+**How to read this:** For each of the top 5 countries, this table shows **how far behind the
+best-in-class** they are on each factor. A value of **0.0 ✅ (green)** means that country *is*
+the best among the top 5 for that factor. **⚠️ Yellow** means a small gap (within 5 points).
+**❌ Red** means a significant gap — that's the price you pay (the "trade-off") for choosing
 that country. No country is green across the board — that's why there's no dominant strategy.
 """)
-tradeoff = build_tradeoff_matrix(scored_df, top_n=min(10, len(scored_df)))
+st.caption("📱 Showing top 5 countries for mobile readability. Desktop users can view more in full data table below.")
 
-def color_delta(val):
-    if isinstance(val, str):
-        return ""
-    if val == 0:
-        return "background-color: #d4edda"
-    elif val >= -5:
-        return "background-color: #fff3cd"
-    else:
-        return "background-color: #f8d7da"
+with st.spinner("Building trade-off matrix..."):
+    tradeoff = build_tradeoff_matrix(scored_df, top_n=min(5, len(scored_df)))
 
-delta_cols = [c for c in tradeoff.columns if c.endswith("Δ")]
-styled = tradeoff.style.map(color_delta, subset=delta_cols).format(
-    {c: "{:.1f}" for c in delta_cols + ["Weighted Score"]}
-)
-st.dataframe(styled, use_container_width=True, hide_index=True)
+    # Add emoji indicators for accessibility
+    def format_delta_with_emoji(val):
+        if isinstance(val, str):
+            return val
+        if val == 0:
+            return f"✅ {val:.1f}"
+        elif val >= -5:
+            return f"⚠️ {val:.1f}"
+        else:
+            return f"❌ {val:.1f}"
+
+    def color_delta(val):
+        if isinstance(val, str):
+            return ""
+        if val == 0:
+            return "background-color: #d4edda"
+        elif val >= -5:
+            return "background-color: #fff3cd"
+        else:
+            return "background-color: #f8d7da"
+
+    delta_cols = [c for c in tradeoff.columns if c.endswith("Δ")]
+
+    # Apply emoji formatting
+    for col in delta_cols:
+        tradeoff[col] = tradeoff[col].apply(format_delta_with_emoji)
+
+    styled = tradeoff.style.map(color_delta, subset=delta_cols)
+    st.dataframe(styled, width='stretch', hide_index=True)
+
+# Screen reader description
+st.caption("📊 Trade-off matrix compares top 10 countries against best-in-class performance in each factor. ✅ = best in category, ⚠️ = small gap, ❌ = significant gap.")
 
 st.divider()
 
 # ── EDA Section ───────────────────────────────────────────────────────
+st.warning("⚠️ **Mobile users:** The EDA section contains many charts and may be slow to load. Expand tabs one at a time for best performance.", icon="📱")
 with st.expander("📊 Exploratory Data Analysis (EDA)", expanded=False):
     eda_tab1, eda_tab2, eda_tab3, eda_tab4 = st.tabs([
         "Correlation Matrix", "Distributions", "Scatter Pairs", "Summary Stats"
@@ -321,14 +517,20 @@ with st.expander("📊 Exploratory Data Analysis (EDA)", expanded=False):
 
     with eda_tab1:
         st.markdown("**Correlation between all sub-factors**")
-        corr = sf_filtered[SUBFACTOR_NAMES].corr()
-        fig_corr = px.imshow(
-            corr, text_auto=".2f", color_continuous_scale="RdBu_r",
-            zmin=-1, zmax=1, aspect="auto",
-        )
-        fig_corr.update_layout(height=550)
-        fig_corr.update_xaxes(tickangle=45, tickfont_size=8)
-        st.plotly_chart(fig_corr, use_container_width=True)
+        with st.spinner("Calculating correlations..."):
+            corr = sf_filtered[SUBFACTOR_NAMES].corr()
+            fig_corr = px.imshow(
+                corr, text_auto=".2f", color_continuous_scale="RdBu_r",
+                zmin=-1, zmax=1, aspect="auto",
+            )
+            fig_corr.update_layout(
+                height=550,
+                margin=dict(t=40, b=40, l=20, r=20),
+                font=dict(size=11)
+            )
+            fig_corr.update_xaxes(tickangle=45, tickfont=dict(size=10))
+            fig_corr.update_yaxes(tickfont=dict(size=10))
+            st.plotly_chart(fig_corr, width='stretch', config={'responsive': True, 'displayModeBar': True, 'displaylogo': False})
 
     with eda_tab2:
         st.markdown("**Distribution of each factor across countries**")
@@ -337,8 +539,12 @@ with st.expander("📊 Exploratory Data Analysis (EDA)", expanded=False):
                 scored_df, x=f, nbins=12, title=f,
                 color_discrete_sequence=["#4A90D9"],
             )
-            fig_hist.update_layout(height=250, margin=dict(t=40, b=20))
-            st.plotly_chart(fig_hist, use_container_width=True)
+            fig_hist.update_layout(
+                height=250,
+                margin=dict(t=40, b=40, l=20, r=20),
+                font=dict(size=11)
+            )
+            st.plotly_chart(fig_hist, width='stretch', config={'responsive': True, 'displayModeBar': True, 'displaylogo': False})
 
     with eda_tab3:
         st.markdown("**Scatter plots for each pair of factors**")
@@ -349,21 +555,30 @@ with st.expander("📊 Exploratory Data Analysis (EDA)", expanded=False):
                 text="Country", color="Region",
                 color_discrete_map=REGION_COLORS,
             )
-            fig_sc.update_traces(textposition="top center", textfont_size=8)
-            fig_sc.update_layout(height=400, margin=dict(t=30, b=20))
-            st.plotly_chart(fig_sc, use_container_width=True)
+            fig_sc.update_traces(
+                textposition="top center",
+                textfont=dict(size=10),
+                marker=dict(size=10)
+            )
+            fig_sc.update_layout(
+                height=400,
+                margin=dict(t=40, b=40, l=20, r=20),
+                font=dict(size=11)
+            )
+            st.plotly_chart(fig_sc, width='stretch', config={'responsive': True, 'displayModeBar': True, 'displaylogo': False})
 
     with eda_tab4:
         st.markdown("**Summary statistics**")
         stats = sf_filtered[SUBFACTOR_NAMES].describe().T
         stats.columns = [c.capitalize() for c in stats.columns]
-        st.dataframe(stats.style.format("{:.1f}"), use_container_width=True)
+        st.dataframe(stats.style.format("{:.1f}"), width='stretch')
 
 st.divider()
 
 # ── Data Table with estimated flags ──────────────────────────────────
 st.subheader("📋 Full Data Table")
 st.caption("Values marked with * are estimates based on regional data (exact index data unavailable).")
+st.caption("📱 **Mobile tip:** Swipe left/right to scroll through all columns. Orange scrollbar indicates more data.")
 
 display_df = scored_df.merge(sf_filtered, on=["Country", "Region"], how="left")
 
@@ -382,7 +597,7 @@ for c in display_df.select_dtypes(include="number").columns:
     if c not in SUBFACTOR_NAMES:
         num_fmt[c] = "{:.1f}"
 
-st.dataframe(display_show, use_container_width=True, hide_index=True)
+st.dataframe(display_show, width='stretch', hide_index=True)
 
 csv = display_df.to_csv(index=False).encode("utf-8")
 st.download_button("⬇️ Download as CSV", csv, "country_analysis.csv", "text/csv")
